@@ -1,0 +1,27 @@
+{
+  "name": "ynab-sync",
+  "version": "0.0.1",
+  "description": "Manually sync to YNAB",
+  "main": "index.js",
+  "scripts": {
+    "start": "babel-node src/index.js",
+    "build": "babel src/index.js > dist/main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Dirley Rodrigues <dirley@romenor.net>",
+  "license": "MIT",
+  "dependencies": {
+    "p-try": "^1.0.0",
+    "puppeteer": "^1.3.0",
+    "shorthash": "0.0.2",
+    "tmp": "0.0.33",
+    "yargs": "^11.0.0"
+  },
+  "devDependencies": {
+    "babel": "^6.23.0",
+    "babel-cli": "^6.26.0",
+    "babel-plugin-transform-es2015-spread": "^6.22.0",
+    "babel-plugin-transform-object-rest-spread": "^6.26.0",
+    "babel-preset-env": "^1.6.1"
+  }
+}
