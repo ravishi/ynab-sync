@@ -91,6 +91,7 @@ async function main(options) {
 
         page.on('response', responseCollector);
 
+        console.log('Logging in...');
         try {
             await loggedInGoTo(page, baseUrl, {username, password});
 
@@ -123,6 +124,19 @@ async function main(options) {
                 console.log('Importing transactions...');
                 await executeImportTransactions(page, missing);
             }
+
+            console.log(`Waiting a little bit for transactions to be flushed...`);
+            await waitForNetworkIdle(page, {timeout: 5000});
+
+            const userDataBtn = await page.waitForSelector('button.button-prefs-user');
+            await userDataBtn.click();
+
+            const signOutBtn = await page.waitForSelector('.modal-user-prefs li:last-child button');
+
+            await Promise.all([
+                signOutBtn.click(),
+                waitForNetworkIdle(page, {timeout: 1000}),
+            ]);
         } else {
             console.log('No new transactions found');
         }
@@ -150,9 +164,16 @@ async function executeImportTransactions(page, transactions) {
 
         const confirmBtn = await page.waitForSelector('.modal-import-review button.button-primary');
 
-        return Promise.all([
+        await Promise.all([
             confirmBtn.click(),
             waitForNetworkIdle(page),
+        ]);
+
+        const otherConfirmBtn = await page.waitForSelector('.modal[role=dialog] button.button-primary');
+
+        return Promise.all([
+            await otherConfirmBtn.click(),
+            waitForNetworkIdle(page, {timeout: 1000})
         ]);
     } finally {
         try {
@@ -224,22 +245,13 @@ async function calcDiff({accountName, input, responses}) {
         .filter(i => undefined === transactions.find(t => i.date === t.date && i.compareAmount === t.amount))
         .map(i => {
             i.original = transactions.find(t => (
-                t.memo && (
-                    t.memo.includes('#' + i.shortId)
-                    /*|| (
-                        t.memo === i.title && t.amount === i.compareAmount
-                    )*/
-                )
+                t.accepted && t.memo && t.memo.includes('#' + i.shortId)
             ));
             return i;
         });
 
     const changed = different.filter(i => i.original);
     const missing = different.filter(i => !i.original);
-
-    const s = JSON.stringify({input, transactions, different, changed, missing}, null, 2);
-    const tempFile = await temporaryFileName();
-    await writeToFile(s, tempFile);
 
     return {changed, missing};
 }
