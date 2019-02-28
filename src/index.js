@@ -59,11 +59,11 @@ async function main(options) {
         account: accountName,
     } = options;
 
+    const ynabApi = new ynab.API(token);
+
     const asyncReadFile = util.promisify(fs.readFile);
 
     const input = JSON.parse(await asyncReadFile(inputPath));
-
-    const ynabApi = new ynab.API(token);
 
     const budget = (await ynabApi.budgets.getBudgets()).data.budgets[0];
 
@@ -103,7 +103,7 @@ async function main(options) {
         date,
         memo: `#${shortId} ${title}`,
         amount: compareAmount,
-        import_id: id,
+        import_id: shortId,
         account_id: account.id,
     }));
 
@@ -112,19 +112,34 @@ async function main(options) {
         await ynabApi.transactions.updateTransaction(budget.id, transaction.id, {transaction});
     });
 
-    console.log('Importing transactions...');
-    await ynabApi.transactions.bulkCreateTransactions(budget.id, {transactions: toBeCreated});
+    if (toBeCreated.length) {
+        console.log('Importing transactions...');
+        await ynabApi.transactions.bulkCreateTransactions(budget.id, {transactions: toBeCreated});
+    }
 
     console.log('Done!');
 
     return 0;
 }
 
+function cookId(id, index, href, date, amount, title) {
+    if (id) {
+        return id;
+    } else if (href) {
+        const parts = href.split('/');
+        return [parts[parts.length - 1], index].join('::');
+    } else {
+        return [date.date, amount, title].join('::');
+    }
+}
+
 async function calcDiff({input, transactions}) {
-    input = input.map(({id, date, amount, ...rest}) => {
+    input = input.map(({id, index, href, date, amount, title, ...rest}) => {
+        id = cookId(id, index, href, date.date, amount, title);
         return {
             id,
             date: date.date,
+            title,
             amount,
             shortId: sh.unique(id),
             compareAmount: (() => {
@@ -136,7 +151,7 @@ async function calcDiff({input, transactions}) {
     });
 
     const different = input
-        .filter(i => i.date.startsWith('2018') || i.date.startsWith('2017'))
+        .filter(i => i.date.startsWith('2019') || i.date.startsWith('2018') || i.date.startsWith('2017'))
         .filter(i => undefined === transactions.find(t => i.date === t.date && i.compareAmount === t.amount))
         .map(i => {
             i.original = transactions.find(t => (
